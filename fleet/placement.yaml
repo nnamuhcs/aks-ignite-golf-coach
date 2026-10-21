@@ -1,0 +1,24 @@
+apiVersion: placement.kubernetes-fleet.io/v1
+kind: ClusterResourcePlacement
+metadata:
+  name: aks-ignite-golf-coach
+spec:
+  resourceSelectors:
+    - group: ""
+      kind: Namespace
+      version: v1
+      name: aks-ignite-golf-coach
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRole
+      version: v1
+      name: aks-ignite-golf-coach-observer
+    - group: rbac.authorization.k8s.io
+      kind: ClusterRoleBinding
+      version: v1
+      name: aks-ignite-golf-coach-observer
+  policy:
+    placementType: PickFixed
+    clusterNames:
+      - caldova-miami-cluster
+  strategy:
+    type: RollingUpdate

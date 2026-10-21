@@ -1,0 +1,170 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: aks-ignite-golf-coach
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: golf-coach
+  namespace: aks-ignite-golf-coach
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aks-ignite-golf-coach-observer
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "pods", "services"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aks-ignite-golf-coach-observer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: aks-ignite-golf-coach-observer
+subjects:
+  - kind: ServiceAccount
+    name: golf-coach
+    namespace: aks-ignite-golf-coach
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: aks-ignite-golf-coach
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: golf-coach-backend
+  template:
+    metadata:
+      labels:
+        app: golf-coach-backend
+    spec:
+      serviceAccountName: golf-coach
+      nodeSelector:
+        kubernetes.io/hostname: caldova-gpu-la
+      runtimeClassName: nvidia
+      containers:
+        - name: backend
+          image: ghcr.io/nnamuhcs/aks-ignite-golf-coach-backend-gpu:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8000
+          env:
+            - name: GOLF_DATA_DIR
+              value: /data
+            - name: GPU_VIDEO_PROCESSING
+              value: required
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+            - name: NODE_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: spec.nodeName
+          resources:
+            requests:
+              cpu: "4"
+              memory: 6Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "12"
+              memory: 24Gi
+              nvidia.com/gpu: "1"
+          volumeMounts:
+            - name: data
+              mountPath: /data
+          readinessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 5
+          livenessProbe:
+            httpGet:
+              path: /api/health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 15
+      volumes:
+        - name: data
+          emptyDir:
+            sizeLimit: 20Gi
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: aks-ignite-golf-coach
+spec:
+  selector:
+    app: golf-coach-backend
+  ports:
+    - name: http
+      port: 8000
+      targetPort: http
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+  namespace: aks-ignite-golf-coach
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: golf-coach-frontend
+  template:
+    metadata:
+      labels:
+        app: golf-coach-frontend
+    spec:
+      containers:
+        - name: frontend
+          image: caldovapharmaacr29320.azurecr.io/aks-ignite-golf-coach-frontend:latest
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 64Mi
+            limits:
+              cpu: 500m
+              memory: 256Mi
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 4
+            periodSeconds: 5
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend
+  namespace: aks-ignite-golf-coach
+spec:
+  type: LoadBalancer
+  selector:
+    app: golf-coach-frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http

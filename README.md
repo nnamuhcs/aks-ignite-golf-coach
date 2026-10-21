@@ -71,10 +71,11 @@ ghcr.io/nnamuhcs/aks-ignite-golf-coach-backend-gpu:latest
 ghcr.io/nnamuhcs/aks-ignite-golf-coach-frontend:latest
 ```
 
-Connect to the Fleet hub cluster, label the member cluster that contains the GPU Flex Node, stage the workload on the hub, and create the placement:
+For a portal-driven deployment without `kubectl`, open the `caldova-pharma-prod-aks-fleet` Fleet Manager resource and create an Automated Deployment. Use the existing `frontend/Dockerfile`, the `frontend` build context, ACR image `aks-ignite-golf-coach-frontend`, and the `fleet` manifest folder. The manifests place the complete application directly on member cluster `caldova-miami-cluster`; the backend remains pinned to GPU node `caldova-gpu-la`.
+
+For a command-line deployment, connect to the Fleet hub cluster, stage the workload, and create the placement:
 
 ```bash
-kubectl label membercluster <gpu-member-cluster> aks-ignite-gpu=true --overwrite
 kubectl apply -k deploy/overlays/jetson-thor
 kubectl apply -f deploy/fleet/cluster-resource-placement.yaml
 ```
@@ -87,7 +88,7 @@ kubectl describe clusterresourceplacement aks-ignite-golf-coach
 kubectl --context <gpu-member-context> get pods,services -n aks-ignite-golf-coach -o wide
 ```
 
-The Fleet placement selects a member cluster labeled `aks-ignite-gpu=true`. Inside that cluster, the backend still schedules only on node `caldova-gpu-la` and requires the `nvidia` RuntimeClass plus one allocatable `nvidia.com/gpu`.
+The Fleet placement selects `caldova-miami-cluster`. Inside that cluster, the backend still schedules only on node `caldova-gpu-la` and requires the `nvidia` RuntimeClass plus one allocatable `nvidia.com/gpu`.
 
 ## API
 
