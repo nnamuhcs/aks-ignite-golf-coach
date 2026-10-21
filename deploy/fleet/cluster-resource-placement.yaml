@@ -1,0 +1,21 @@
+apiVersion: placement.kubernetes-fleet.io/v1beta1
+kind: ClusterResourcePlacement
+metadata:
+  name: aks-ignite-golf-coach
+spec:
+  resourceSelectors:
+    - group: ""
+      kind: Namespace
+      version: v1
+      name: aks-ignite-golf-coach
+  policy:
+    placementType: PickAll
+    affinity:
+      clusterAffinity:
+        requiredDuringSchedulingIgnoredDuringExecution:
+          clusterSelectorTerms:
+            - labelSelector:
+                matchLabels:
+                  aks-ignite-gpu: "true"
+  strategy:
+    type: RollingUpdate

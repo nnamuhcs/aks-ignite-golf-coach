@@ -1,0 +1,25 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  template:
+    spec:
+      nodeSelector:
+        kubernetes.io/hostname: caldova-gpu-la
+      runtimeClassName: nvidia
+      containers:
+        - name: backend
+          image: ghcr.io/nnamuhcs/aks-ignite-golf-coach-backend-gpu:latest
+          env:
+            - name: GPU_VIDEO_PROCESSING
+              value: "required"
+          resources:
+            requests:
+              cpu: "4"
+              memory: 6Gi
+              nvidia.com/gpu: "1"
+            limits:
+              cpu: "12"
+              memory: 24Gi
+              nvidia.com/gpu: "1"

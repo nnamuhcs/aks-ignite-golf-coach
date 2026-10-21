@@ -1,0 +1,22 @@
+services:
+  backend:
+    build:
+      context: ./backend
+    environment:
+      GOLF_DATA_DIR: /data
+      MAX_UPLOAD_SIZE_MB: 500
+    volumes:
+      - golf-data:/data
+    ports:
+      - "8000:8000"
+
+  frontend:
+    build:
+      context: ./frontend
+    depends_on:
+      - backend
+    ports:
+      - "8080:8080"
+
+volumes:
+  golf-data:

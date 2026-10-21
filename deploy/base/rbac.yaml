@@ -1,0 +1,24 @@
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: aks-ignite-golf-coach-observer
+rules:
+  - apiGroups: [""]
+    resources: ["nodes", "pods", "services"]
+    verbs: ["get", "list"]
+  - apiGroups: ["apps"]
+    resources: ["deployments"]
+    verbs: ["get", "list"]
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: aks-ignite-golf-coach-observer
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: aks-ignite-golf-coach-observer
+subjects:
+  - kind: ServiceAccount
+    name: golf-coach
+    namespace: aks-ignite-golf-coach
