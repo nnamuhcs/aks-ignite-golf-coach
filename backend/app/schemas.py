@@ -67,6 +67,7 @@ class VideoMetadata(BaseModel):
     height: int
     analyzed_frames: int
     pose_frames: int
+    display_rotation_degrees: Optional[int] = Field(default=None, ge=0, lt=360)
 
 
 class ExecutionMetadata(BaseModel):

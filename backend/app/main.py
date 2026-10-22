@@ -16,6 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from .config import ASSETS_DIR, MAX_UPLOAD_SIZE_MB, RESULTS_DIR, UPLOAD_DIR
 from .pipeline import run_analysis
 from .platform import get_kubernetes_inventory, get_platform_status
+from .pose_estimator import PoseEstimationError, read_video_display_rotation
 from .schemas import AnalysisResult, JobStatus, KubernetesInventory, PlatformStatus
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
@@ -194,7 +195,17 @@ def get_result(analysis_id: str) -> AnalysisResult:
     result_path = RESULTS_DIR / f"{analysis_id}.json"
     if not result_path.exists():
         raise HTTPException(status_code=404, detail="Analysis result is not available.")
-    return AnalysisResult.model_validate_json(result_path.read_text(encoding="utf-8"))
+    result = AnalysisResult.model_validate_json(result_path.read_text(encoding="utf-8"))
+    if result.athlete.display_rotation_degrees is None:
+        video_path = next((UPLOAD_DIR / analysis_id).glob("athlete.*"), None)
+        if video_path is None:
+            LOGGER.warning("Source video is missing; view orientation is unknown for %s", analysis_id)
+        else:
+            try:
+                result.athlete.display_rotation_degrees = read_video_display_rotation(video_path)
+            except PoseEstimationError:
+                LOGGER.warning("View orientation is unavailable for %s", analysis_id, exc_info=True)
+    return result
 
 
 @app.get("/api/analyses/{analysis_id}/video")

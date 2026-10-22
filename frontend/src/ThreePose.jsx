@@ -124,6 +124,8 @@ export default function ThreePose({
   ghostLandmarks = [],
   angleOverlays = null,
   handedness = 'right',
+  viewResetKey = 0,
+  videoRotation = null,
 }) {
   const mountRef = useRef(null)
   const athleteRef = useRef(null)
@@ -260,8 +262,12 @@ export default function ThreePose({
       ghostGroups: [],
       trajectoryPath: null,
     }
-    orientationRef.current = null
-
+    // Match browser display rotation, then convert camera Y/down and Z/away to Three.js.
+    orientationRef.current = videoRotation === null
+      ? null
+      : new THREE.Quaternion()
+        .setFromAxisAngle(new THREE.Vector3(0, 0, 1), -THREE.MathUtils.degToRad(videoRotation))
+        .multiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(1, 0, 0), Math.PI))
     const floorGlow = new THREE.Mesh(
       new THREE.CircleGeometry(1.45, 64),
       new THREE.MeshBasicMaterial({
@@ -349,7 +355,11 @@ export default function ThreePose({
       orientationRef.current = null
       mount.removeChild(renderer.domElement)
     }
-  }, [trajectory])
+  }, [trajectory, videoRotation])
+
+  useEffect(() => {
+    athleteRef.current?.athlete.rotation.set(0, 0, 0)
+  }, [viewResetKey])
 
   useEffect(() => {
     if (!landmarks?.length || !athleteRef.current) return
@@ -449,7 +459,7 @@ export default function ThreePose({
         angleSprites[index].position.copy(position)
       })
     }
-  }, [landmarks, trajectory, ghostLandmarks, angleOverlays, handedness])
+  }, [landmarks, trajectory, ghostLandmarks, angleOverlays, handedness, videoRotation])
 
   return <div className="three-pose" ref={mountRef} />
 }

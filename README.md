@@ -14,6 +14,17 @@ The application turns a real uploaded swing video into an interactive 3D coachin
 6. Read coaching guidance with the exact measurement used as evidence.
 7. View the actual host, AKS node, Flex Node, and NVIDIA GPU status.
 
+The 3D athlete, ghost poses, and wrist path retain the source video's camera-relative
+orientation. Drag to rotate the model at any time. Each video Play event, including
+resuming after a pause, resets the manual rotation to that source view without
+changing the existing playback timing or seek synchronization.
+Video display rotation is included in the analysis metadata, so portrait MOV
+recordings also match the orientation shown by the browser. Existing saved
+analyses recover that metadata from the original upload without rerunning inference.
+If the source rotation cannot be recovered, the viewer keeps the legacy orientation
+and explicitly reports that the video angle is unavailable.
+Click the Golf Swing AI Coach logo or title to return to the main upload page.
+
 No professional golfer footage or likeness is used by the Ignite experience. No platform value is simulated. If the application is not running in Kubernetes or cannot access an NVIDIA GPU, the interface says so.
 
 ## Local development

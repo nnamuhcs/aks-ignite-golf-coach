@@ -346,6 +346,7 @@ function ResultsPanel({ result, onReset }) {
   const [poseIndex, setPoseIndex] = useState(0)
   const [showGhosts, setShowGhosts] = useState(true)
   const [showAngles, setShowAngles] = useState(true)
+  const [videoPlayCount, setVideoPlayCount] = useState(0)
   const videoRef = useRef(null)
   const phase = result.phases[selectedPhase]
   const currentPose = result.pose_sequence[poseIndex] || result.pose_sequence[0]
@@ -427,6 +428,7 @@ function ResultsPanel({ result, onReset }) {
             src={`${API_BASE}/api/analyses/${result.analysis_id}/video`}
             controls
             playsInline
+            onPlay={() => setVideoPlayCount((count) => count + 1)}
             onTimeUpdate={synchronize}
             onSeeked={synchronize}
           />
@@ -437,7 +439,9 @@ function ResultsPanel({ result, onReset }) {
             <div className="model-controls">
               <button className={showGhosts ? 'active' : ''} onClick={() => setShowGhosts(!showGhosts)}>Ghosts</button>
               <button className={showAngles ? 'active' : ''} onClick={() => setShowAngles(!showAngles)}>Angles</button>
-              <span>Drag to rotate</span>
+              <span>{result.athlete.display_rotation_degrees == null
+                ? 'Video angle unavailable. Drag to adjust.'
+                : 'Drag to rotate. Play resets view.'}</span>
             </div>
           </div>
           <div className="model-display">
@@ -447,6 +451,8 @@ function ResultsPanel({ result, onReset }) {
                 trajectory={result.trajectory}
                 ghostLandmarks={showGhosts ? ghostPhases : []}
                 handedness={result.handedness || 'right'}
+                viewResetKey={videoPlayCount}
+                videoRotation={result.athlete.display_rotation_degrees}
               />
               <div className="synchronized-badge">Synchronized with source video</div>
             </div>
@@ -577,11 +583,22 @@ export default function App() {
   return (
     <div className="app">
       <header className="header">
-        <img src="/golf-icon.svg" alt="" />
-        <div className="header-titles">
-          <h1>Golf Swing <span>AI Coach</span></h1>
-          <p>Local AI on AKS Flex Nodes. Don&apos;t bet your handicap on it.</p>
-        </div>
+        <a
+          className="header-home"
+          href="/"
+          aria-label="Golf Swing AI Coach home"
+          onClick={(event) => {
+            if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return
+            event.preventDefault()
+            reset()
+          }}
+        >
+          <img src="/golf-icon.svg" alt="" />
+          <div className="header-titles">
+            <h1>Golf Swing <span>AI Coach</span></h1>
+            <p>Local AI on AKS Flex Nodes. Don&apos;t bet your handicap on it.</p>
+          </div>
+        </a>
         <nav>
           <button className={view === 'coach' ? 'active' : ''} onClick={reset}>Coach</button>
           <button className={view === 'architecture' ? 'active' : ''} onClick={() => { setView('architecture'); setK8sOpen(false) }}>Architecture</button>

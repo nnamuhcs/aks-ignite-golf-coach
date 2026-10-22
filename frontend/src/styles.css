@@ -42,7 +42,9 @@ button { color: inherit; }
   border-bottom: 1px solid var(--border);
 }
 
-.header > img { width: 40px; height: 40px; }
+.header-home { display: flex; align-items: center; gap: 12px; color: inherit; text-decoration: none; border-radius: 6px; }
+.header-home:focus-visible { outline: 2px solid var(--green); outline-offset: 4px; }
+.header-home > img { width: 40px; height: 40px; }
 .header-titles { display: flex; flex-direction: column; gap: 2px; }
 .header h1 { margin: 0; font-size: 18px; line-height: 1.2; }
 .header h1 span { color: var(--green); }

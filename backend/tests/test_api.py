@@ -1,9 +1,13 @@
 """API contract tests that do not fabricate inference data."""
 
+from pathlib import Path
+
+import pytest
 from fastapi.testclient import TestClient
 
 from app.config import UPLOAD_DIR
 from app.main import app
+from app.pose_estimator import PoseEstimationError, read_video_display_rotation
 
 client = TestClient(app)
 
@@ -28,3 +32,8 @@ def test_invalid_upload_type_is_rejected() -> None:
     )
     assert response.status_code == 400
     assert set(UPLOAD_DIR.iterdir()) == directories_before
+
+
+def test_missing_video_does_not_claim_a_display_rotation(tmp_path: Path) -> None:
+    with pytest.raises(PoseEstimationError, match="display rotation could not be read"):
+        read_video_display_rotation(tmp_path / "missing.mp4")

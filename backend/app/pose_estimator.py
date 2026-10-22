@@ -17,6 +17,23 @@ class PoseEstimationError(RuntimeError):
     """Raised when a usable pose sequence cannot be extracted."""
 
 
+def _display_rotation(capture: cv2.VideoCapture) -> int:
+    if capture.get(cv2.CAP_PROP_ORIENTATION_AUTO):
+        return 0
+    return int(capture.get(cv2.CAP_PROP_ORIENTATION_META)) % 360
+
+
+def read_video_display_rotation(video_path: Path) -> int:
+    """Read the display rotation still needed after OpenCV decoding."""
+    capture = cv2.VideoCapture(str(video_path))
+    try:
+        if not capture.isOpened():
+            raise PoseEstimationError("The source video's display rotation could not be read.")
+        return _display_rotation(capture)
+    finally:
+        capture.release()
+
+
 class MediaPipePoseEstimator:
     """Extract a temporally sampled 3D pose sequence from a video."""
 
@@ -101,6 +118,7 @@ class MediaPipePoseEstimator:
                 height=height,
                 analyzed_frames=analyzed_frames,
                 pose_frames=len(pose_frames),
+                display_rotation_degrees=_display_rotation(capture),
             )
             LOGGER.info("Extracted %d pose frames from %s", len(pose_frames), original_filename)
             return metadata, pose_frames
