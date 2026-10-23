@@ -1,5 +1,6 @@
 """API and analysis data models."""
 
+from datetime import datetime
 from typing import Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
@@ -171,3 +172,34 @@ class KubernetesInventory(BaseModel):
     pods: List[KubernetesWorkload]
     deployments: List[KubernetesWorkload]
     services: List[KubernetesService]
+
+
+class GpuDemoStartRequest(BaseModel):
+    duration_seconds: int = Field(default=120, ge=5, le=120)
+
+
+class GpuDemoStatus(BaseModel):
+    """Manual CUDA demo load state. Not related to golf swing analysis results."""
+
+    label: str
+    state: Literal["idle", "starting", "running", "stopping", "stopped", "completed", "failed"]
+    active: bool
+    run_id: Optional[str] = None
+    pid: Optional[int] = None
+    device_name: Optional[str] = None
+    matrix_size: Optional[int] = None
+    allocated_memory_mb: Optional[float] = None
+    memory_limit_mb: int
+    duty_cycle: float
+    max_duration_seconds: int
+    requested_duration_seconds: Optional[int] = None
+    started_at: Optional[datetime] = None
+    elapsed_seconds: Optional[float] = None
+    remaining_seconds: Optional[float] = None
+    iterations: Optional[int] = None
+    gpu_busy_seconds: Optional[float] = None
+    measured_tflops: Optional[float] = None
+    stop_reason: Optional[Literal["user", "time_limit", "watchdog", "shutdown", "error"]] = None
+    exit_code: Optional[int] = None
+    error: Optional[str] = None
+    message: str

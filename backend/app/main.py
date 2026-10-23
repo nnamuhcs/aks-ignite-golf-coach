@@ -5,8 +5,9 @@ import logging
 import shutil
 import threading
 import uuid
+from contextlib import asynccontextmanager
 from pathlib import Path
-from typing import Dict, Optional
+from typing import AsyncIterator, Dict, Optional
 
 from fastapi import FastAPI, File, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -14,15 +15,34 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 
 from .config import ASSETS_DIR, MAX_UPLOAD_SIZE_MB, RESULTS_DIR, UPLOAD_DIR
+from .gpu_demo import GpuDemoConflict, GpuDemoController, GpuDemoError, GpuDemoUnavailable
 from .pipeline import run_analysis
 from .platform import get_kubernetes_inventory, get_platform_status
 from .pose_estimator import PoseEstimationError, read_video_display_rotation
-from .schemas import AnalysisResult, JobStatus, KubernetesInventory, PlatformStatus
+from .schemas import (
+    AnalysisResult,
+    GpuDemoStartRequest,
+    GpuDemoStatus,
+    JobStatus,
+    KubernetesInventory,
+    PlatformStatus,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s: %(message)s")
 LOGGER = logging.getLogger(__name__)
 
-app = FastAPI(title="AKS Ignite Golf Coach API", version="1.0.0")
+GPU_DEMO = GpuDemoController()
+
+
+@asynccontextmanager
+async def lifespan(_: FastAPI) -> AsyncIterator[None]:
+    try:
+        yield
+    finally:
+        GPU_DEMO.shutdown()
+
+
+app = FastAPI(title="AKS Ignite Golf Coach API", version="1.0.0", lifespan=lifespan)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -117,6 +137,30 @@ def platform_status() -> PlatformStatus:
 @app.get("/api/kubernetes", response_model=KubernetesInventory)
 def kubernetes_inventory() -> KubernetesInventory:
     return get_kubernetes_inventory()
+
+
+@app.get("/api/gpu-demo", response_model=GpuDemoStatus)
+@app.get("/api/gpu-demo/status", response_model=GpuDemoStatus)
+def gpu_demo_status() -> GpuDemoStatus:
+    return GPU_DEMO.status()
+
+
+@app.post("/api/gpu-demo/start", response_model=GpuDemoStatus, status_code=202)
+def start_gpu_demo(request: Optional[GpuDemoStartRequest] = None) -> GpuDemoStatus:
+    duration = request.duration_seconds if request else None
+    try:
+        return GPU_DEMO.start(duration)
+    except GpuDemoConflict as error:
+        raise HTTPException(status_code=409, detail=str(error)) from error
+    except GpuDemoUnavailable as error:
+        raise HTTPException(status_code=503, detail=str(error)) from error
+    except (GpuDemoError, ValueError) as error:
+        raise HTTPException(status_code=500, detail=str(error)) from error
+
+
+@app.post("/api/gpu-demo/stop", response_model=GpuDemoStatus)
+def stop_gpu_demo() -> GpuDemoStatus:
+    return GPU_DEMO.stop()
 
 
 @app.post("/api/analyses", response_model=JobStatus, status_code=202)

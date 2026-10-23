@@ -74,7 +74,7 @@ GPU registration alone does not prove CUDA execution works. On Thor, the Flex No
 
 Live GPU telemetry also requires the host's `nvidia-smi` executable to be available in the workload. Thor can report `[N/A]` for dedicated GPU memory; the dashboard preserves these metrics as unreported instead of displaying fabricated zero values or failing the platform endpoint.
 
-The host kernel must support WireGuard and GENEVE for the Flex Node network used by this deployment. A Ready node and a locally healthy backend do not prove that an Azure-hosted frontend can reach Thor. Verify cross-node HTTP connectivity before deploying through Fleet.
+Cross-node traffic through the Flex Node network requires WireGuard and GENEVE support in the host kernel. A Ready node and a locally healthy backend do not prove that an Azure-hosted frontend can reach Thor. The `fleet` manifests instead place both application components on Thor and expose the frontend directly over corpnet VPN. This avoids cross-node application traffic, but still requires working local pod networking, Kubernetes service discovery, and NodePort access.
 
 The initial pose provider uses MediaPipe CPU inference. The Jetson image also runs real CUDA temporal motion and edge analysis in parallel through CuPy. That GPU output contributes its motion peak to impact timing and is reported separately from pose inference. The pose provider remains isolated in `backend/app/pose_estimator.py` so a TensorRT implementation can replace it without changing the API or frontend. Do not claim GPU accelerated pose inference until that provider is installed and the execution metadata reports it.
 
@@ -88,13 +88,21 @@ ghcr.io/nnamuhcs/aks-ignite-golf-coach-backend-gpu:latest
 ghcr.io/nnamuhcs/aks-ignite-golf-coach-frontend:latest
 ```
 
-For a portal-driven deployment without `kubectl`, open the `caldova-pharma-prod-aks-fleet` Fleet Manager resource and create an Automated Deployment. Use the existing `frontend/Dockerfile`, the `frontend` build context, ACR image `aks-ignite-golf-coach-frontend`, and the `fleet` manifest folder. The manifests place the complete application directly on member cluster `caldova-miami-cluster`; the backend remains pinned to GPU node `caldova-gpu-la`.
+For a portal-driven deployment without `kubectl`, open the `caldova-pharma-prod-aks-fleet` Fleet Manager resource and create an Automated Deployment. Select GitHub owner `nnamuhcs`, repository `aks-ignite-golf-coach`, and branch `main`. Use the existing `frontend/Dockerfile`, the `frontend` build context, ACR `caldovapharmaacr29320`, image `aks-ignite-golf-coach-frontend`, the `fleet` manifest folder, and hub namespace `aks-ignite-golf-coach`. The manifests place both frontend and backend on GPU node `caldova-gpu-la` in member cluster `caldova-miami-cluster`.
+
+Once placement succeeds and both pods are Ready, connect to corpnet VPN and open `http://10.131.137.11:30080`. The frontend forwards API requests and video uploads to the backend service on the same Thor node. The frontend service uses NodePort `30080`; no Azure public load balancer is created. This is an HTTP demo endpoint without application authentication, so restrict network access to trusted demo clients. Do not expose it publicly.
+
+Thor requires its own ACR pull credentials; the Azure node pool's AcrPull identity does not automatically authenticate this Flex Node. The prepared `golf-coach-acr-pull` Secret on the Fleet hub is namespace-scoped and propagates with the workload. Its ACR token can only read `aks-ignite-golf-coach-frontend` and expires on November 22, 2026. Rotate the token and update that Secret before expiry. Never commit registry credentials. Thor also has a registry-specific HTTPS endpoint for this ACR so that pulls do not use its unavailable default localhost mirror.
+
+The frontend container uses Kubernetes' injected `BACKEND_SERVICE_HOST` to reach the backend service without requiring cross-site DNS at startup. Outside Kubernetes it defaults to the `backend` hostname, preserving Docker Compose behavior.
+
+In the live Kubernetes panel, **GPU demo load** provides manual Start and Stop controls for real CUDA matrix computations, explicitly separate from golf analysis. Each run stops automatically after at most 120 seconds, defaults to a 256 MB matrix allocation budget and a 60% work duty cycle, and reports measured worker activity. NVIDIA utilization remains live telemetry, not a prescribed percentage. Do not present this synthetic load as golf inference.
 
 For a command-line deployment, connect to the Fleet hub cluster, stage the workload, and create the placement:
 
 ```bash
-kubectl apply -k deploy/overlays/jetson-thor
-kubectl apply -f deploy/fleet/cluster-resource-placement.yaml
+kubectl apply -f fleet/workload.yaml
+kubectl apply -f fleet/placement.yaml
 ```
 
 Confirm placement and workload health:
@@ -105,7 +113,7 @@ kubectl describe clusterresourceplacement aks-ignite-golf-coach
 kubectl --context <gpu-member-context> get pods,services -n aks-ignite-golf-coach -o wide
 ```
 
-The Fleet placement selects `caldova-miami-cluster`. Inside that cluster, the backend still schedules only on node `caldova-gpu-la` and requires the `nvidia` RuntimeClass plus one allocatable `nvidia.com/gpu`.
+The Fleet placement selects `caldova-miami-cluster`. Inside that cluster, both components schedule only on node `caldova-gpu-la`. Only the backend requires the `nvidia` RuntimeClass plus one allocatable `nvidia.com/gpu`; the ARM64 frontend does not reserve a GPU. The separate `deploy/overlays/jetson-thor` manifests are not the VPN NodePort configuration described here.
 
 ## API
 

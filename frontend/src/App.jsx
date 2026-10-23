@@ -14,6 +14,120 @@ function gpuMemoryLabel(gpu) {
     : 'GPU memory not reported by NVIDIA'
 }
 
+const GPU_DEMO_ACTIVE_STATES = ['starting', 'running', 'stopping']
+
+const GPU_DEMO_STATE_LABELS = {
+  idle: 'Idle',
+  starting: 'Starting',
+  running: 'Running',
+  stopping: 'Stopping',
+  stopped: 'Stopped',
+  completed: 'Completed',
+  failed: 'Failed',
+}
+
+async function readApiResponse(response) {
+  const data = await response.json().catch(() => null)
+  if (!response.ok) {
+    const detail = data?.detail
+    throw new Error(typeof detail === 'string' ? detail : `Request failed with HTTP ${response.status}`)
+  }
+  return data
+}
+
+function GpuDemoControl() {
+  const [demo, setDemo] = useState(null)
+  const [pending, setPending] = useState(false)
+  const [requestError, setRequestError] = useState(null)
+  const [pollError, setPollError] = useState(null)
+  const active = demo ? GPU_DEMO_ACTIVE_STATES.includes(demo.state) : false
+
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      try {
+        const next = await readApiResponse(await fetch(`${API_BASE}/api/gpu-demo`))
+        if (!cancelled) {
+          setDemo(next)
+          setPollError(null)
+        }
+      } catch (error) {
+        if (!cancelled) setPollError(`GPU demo status unavailable: ${error.message}`)
+      }
+    }
+    load()
+    const timer = window.setInterval(load, active ? 1000 : 5000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [active])
+
+  const send = async (action) => {
+    setPending(true)
+    setRequestError(null)
+    try {
+      const response = await fetch(`${API_BASE}/api/gpu-demo/${action}`, { method: 'POST' })
+      setDemo(await readApiResponse(response))
+    } catch (error) {
+      setRequestError(error.message)
+    } finally {
+      setPending(false)
+    }
+  }
+
+  const state = demo?.state || 'idle'
+  const transitioning = state === 'starting' || state === 'stopping'
+  const indicator = state === 'running' ? 'status-ready' : transitioning ? 'status-waiting' : state === 'failed' ? 'status-error' : 'status-off'
+  const workerError = state === 'failed' ? demo?.error : null
+
+  return (
+    <section className="k8s-section gpu-demo-section" aria-label="GPU demo load control">
+      <h3>GPU demo load</h3>
+      <p className="gpu-demo-label">
+        Synthetic CUDA matrix math for demonstrating GPU utilization. Separate from golf swing analysis and not used in any coaching result.
+      </p>
+      <div className="gpu-demo-status">
+        <i className={indicator} />
+        <strong>{GPU_DEMO_STATE_LABELS[state] || state}</strong>
+        <span>{demo?.message || 'Reading GPU demo status'}</span>
+      </div>
+      {demo && (
+        <dl className="gpu-demo-details">
+          <div><dt>Device</dt><dd>{demo.device_name || 'Not reported'}</dd></div>
+          <div><dt>Elapsed</dt><dd>{demo.elapsed_seconds != null ? `${demo.elapsed_seconds.toFixed(0)} s` : 'N/A'}</dd></div>
+          <div><dt>Auto stop in</dt><dd>{demo.remaining_seconds != null ? `${demo.remaining_seconds.toFixed(0)} s` : `${demo.max_duration_seconds} s max`}</dd></div>
+          <div><dt>GPU memory</dt><dd>{demo.allocated_memory_mb != null ? `${demo.allocated_memory_mb} MB allocated` : `${demo.memory_limit_mb} MB limit`}</dd></div>
+          <div><dt>Duty cycle</dt><dd>{Math.round(demo.duty_cycle * 100)}%</dd></div>
+          <div><dt>Matmul iterations</dt><dd>{demo.iterations ?? 'N/A'}</dd></div>
+          <div><dt>Measured throughput</dt><dd>{demo.measured_tflops != null ? `${demo.measured_tflops} TFLOPS` : 'N/A'}</dd></div>
+        </dl>
+      )}
+      <div className="gpu-demo-actions">
+        <button
+          type="button"
+          className="primary-button"
+          onClick={() => send('start')}
+          disabled={pending || !demo || active}
+        >
+          {pending && !active ? 'Starting...' : 'Start GPU demo load'}
+        </button>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => send('stop')}
+          disabled={pending || !active || state === 'stopping'}
+        >
+          {state === 'stopping' ? 'Stopping...' : 'Stop'}
+        </button>
+      </div>
+      {requestError && <div className="gpu-demo-error" role="alert">{requestError}</div>}
+      {workerError && <div className="gpu-demo-error" role="alert">{workerError}</div>}
+      {pollError && <div className="gpu-demo-error" role="alert">{pollError}</div>}
+    </section>
+  )
+}
+
 function K8sPanel({ isOpen, onToggle, platform, result }) {
   const memoryPercent = platform
     ? Math.round((platform.memory_used_mb / platform.memory_total_mb) * 100)
@@ -85,6 +199,8 @@ function K8sPanel({ isOpen, onToggle, platform, result }) {
             </small>
           </div>
         </section>
+
+        <GpuDemoControl />
 
         <section className="k8s-section node-details">
           <h3>Deployment details</h3>
