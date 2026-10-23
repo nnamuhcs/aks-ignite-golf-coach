@@ -96,7 +96,7 @@ Thor requires its own ACR pull credentials; the Azure node pool's AcrPull identi
 
 The frontend container uses Kubernetes' injected `BACKEND_SERVICE_HOST` to reach the backend service without requiring cross-site DNS at startup. Outside Kubernetes it defaults to the `backend` hostname, preserving Docker Compose behavior.
 
-In the live Kubernetes panel, **GPU demo load** provides manual Start and Stop controls for real CUDA matrix computations, explicitly separate from golf analysis. Each run stops automatically after at most 120 seconds, defaults to a 256 MB matrix allocation budget and a 60% work duty cycle, and reports measured worker activity. NVIDIA utilization remains live telemetry, not a prescribed percentage. Do not present this synthetic load as golf inference.
+GPU demo load is an operator-only backend API, not displayed on the application page. Use `POST /api/gpu-demo/start`, `POST /api/gpu-demo/stop`, and `GET /api/gpu-demo` to control real CUDA matrix computations separately from golf analysis. Each run stops automatically after at most 120 seconds, defaults to a 256 MB matrix allocation budget and a 60% work duty cycle, and reports measured worker activity. NVIDIA utilization remains live telemetry, not a prescribed percentage. Do not present this synthetic load as golf inference.
 
 For a command-line deployment, connect to the Fleet hub cluster, stage the workload, and create the placement:
 
