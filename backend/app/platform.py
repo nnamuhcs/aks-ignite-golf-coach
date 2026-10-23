@@ -5,6 +5,7 @@ import os
 import platform
 import socket
 import subprocess
+from typing import Optional
 import psutil
 from kubernetes import client, config
 from kubernetes.config.config_exception import ConfigException
@@ -21,6 +22,10 @@ from .schemas import (
 LOGGER = logging.getLogger(__name__)
 
 
+def _gpu_metric(value: str) -> Optional[int]:
+    return None if value in {"N/A", "[N/A]"} else int(value)
+
+
 def _gpu_status() -> GpuStatus:
     command = [
         "nvidia-smi",
@@ -32,17 +37,25 @@ def _gpu_status() -> GpuStatus:
     except (FileNotFoundError, subprocess.CalledProcessError, subprocess.TimeoutExpired):
         return GpuStatus(available=False)
 
-    first_line = completed.stdout.strip().splitlines()[0]
-    fields = [field.strip() for field in first_line.split(",")]
+    lines = completed.stdout.strip().splitlines()
+    fields = [field.strip() for field in lines[0].split(",")] if lines else []
     if len(fields) != 5:
+        LOGGER.warning("NVIDIA telemetry returned an unexpected field count: %s", len(fields))
+        return GpuStatus(available=False)
+    try:
+        memory_total = _gpu_metric(fields[2])
+        memory_used = _gpu_metric(fields[3])
+        utilization = _gpu_metric(fields[4])
+    except ValueError as error:
+        LOGGER.warning("NVIDIA telemetry returned an invalid numeric metric: %s", error)
         return GpuStatus(available=False)
     return GpuStatus(
         available=True,
         name=fields[0],
         driver_version=fields[1],
-        memory_total_mb=int(fields[2]),
-        memory_used_mb=int(fields[3]),
-        utilization_percent=int(fields[4]),
+        memory_total_mb=memory_total,
+        memory_used_mb=memory_used,
+        utilization_percent=utilization,
     )
 
 

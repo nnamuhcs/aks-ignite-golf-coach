@@ -8,11 +8,17 @@ function titleCase(value) {
   return value.replaceAll('_', ' ').replace(/\b\w/g, (letter) => letter.toUpperCase())
 }
 
+function gpuMemoryLabel(gpu) {
+  return gpu.memory_used_mb != null && gpu.memory_total_mb != null
+    ? `${gpu.memory_used_mb} / ${gpu.memory_total_mb} MB GPU memory`
+    : 'GPU memory not reported by NVIDIA'
+}
+
 function K8sPanel({ isOpen, onToggle, platform, result }) {
   const memoryPercent = platform
     ? Math.round((platform.memory_used_mb / platform.memory_total_mb) * 100)
     : 0
-  const gpuPercent = platform?.gpu.utilization_percent ?? 0
+  const gpuPercent = platform?.gpu.utilization_percent
   const kubernetes = platform?.kubernetes
 
   return (
@@ -56,11 +62,11 @@ function K8sPanel({ isOpen, onToggle, platform, result }) {
         <section className="k8s-section">
           <h3>Live system metrics</h3>
           <div className="system-metric">
-            <div><span>GPU utilization</span><strong>{platform?.gpu.available ? `${gpuPercent}%` : 'N/A'}</strong></div>
-            <div className="metric-track"><i className="gpu-fill" style={{ width: `${gpuPercent}%` }} /></div>
+            <div><span>GPU utilization</span><strong>{platform?.gpu.available && gpuPercent != null ? `${gpuPercent}%` : 'N/A'}</strong></div>
+            <div className="metric-track"><i className="gpu-fill" style={{ width: `${gpuPercent ?? 0}%` }} /></div>
             <small>
               {platform?.gpu.available
-                ? `${platform.gpu.memory_used_mb} / ${platform.gpu.memory_total_mb} MB GPU memory`
+                ? gpuMemoryLabel(platform.gpu)
                 : 'Live NVIDIA telemetry appears on Jetson Thor'}
             </small>
           </div>
@@ -135,7 +141,7 @@ function KubernetesView({ inventory, platform, result, embedded = false }) {
         <article><span>Node</span><strong>{inventory?.node_name || platform?.hostname || 'Unknown'}</strong><small>{platform?.architecture || 'Reading architecture'}</small></article>
         <article><span>Agent pool</span><strong>{inventory?.node_pool || 'Not in cluster'}</strong><small>{platform?.kubernetes.flex_node ? 'AKS Flex Node verified' : 'Flex Node not detected'}</small></article>
         <article><span>Namespace</span><strong>{inventory?.namespace || 'Not available'}</strong><small>{workloads.length} live workloads</small></article>
-        <article className="gpu-summary"><span>NVIDIA GPU</span><strong>{platform?.gpu.available ? platform.gpu.name : 'Not detected'}</strong><small>{platform?.gpu.available ? `${platform.gpu.utilization_percent}% utilization` : 'Activates on Jetson Thor'}</small></article>
+        <article className="gpu-summary"><span>NVIDIA GPU</span><strong>{platform?.gpu.available ? platform.gpu.name : 'Not detected'}</strong><small>{platform?.gpu.available ? (platform.gpu.utilization_percent != null ? `${platform.gpu.utilization_percent}% utilization` : 'Utilization not reported') : 'Activates on Jetson Thor'}</small></article>
       </div>
 
       <div className="kubernetes-dashboard-grid">
@@ -198,9 +204,9 @@ function KubernetesView({ inventory, platform, result, embedded = false }) {
             <small>{platform ? `${Math.round(platform.memory_used_mb / 1024)} / ${Math.round(platform.memory_total_mb / 1024)} GB` : 'Reading memory'}</small>
           </div>
           <div className="compute-metric">
-            <div><span>GPU</span><strong>{platform?.gpu.available ? `${platform.gpu.utilization_percent}%` : 'N/A'}</strong></div>
+            <div><span>GPU</span><strong>{platform?.gpu.available && platform.gpu.utilization_percent != null ? `${platform.gpu.utilization_percent}%` : 'N/A'}</strong></div>
             <div className="metric-track"><i className="gpu-fill" style={{ width: `${platform?.gpu.utilization_percent || 0}%` }} /></div>
-            <small>{platform?.gpu.available ? `${platform.gpu.memory_used_mb} / ${platform.gpu.memory_total_mb} MB` : 'NVIDIA GPU not present locally'}</small>
+            <small>{platform?.gpu.available ? gpuMemoryLabel(platform.gpu) : 'NVIDIA GPU not present locally'}</small>
           </div>
         </section>
 
