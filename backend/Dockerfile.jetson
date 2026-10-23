@@ -21,7 +21,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PATH=/opt/venv/bin:$PATH
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends python3 ffmpeg libgl1 libglib2.0-0 \
+    && apt-get install -y --no-install-recommends python3 ffmpeg libgl1 libglib2.0-0 cuda-cudart-dev-13-0 \
     && groupadd --system app \
     && useradd --system --gid app --home-dir /app app \
     && mkdir -p /app /data/uploads /data/results /data/assets \

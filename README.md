@@ -70,6 +70,10 @@ kubectl get runtimeclass nvidia
 kubectl get node caldova-gpu-la -o jsonpath='{.status.allocatable.nvidia\.com/gpu}'
 ```
 
+GPU registration alone does not prove CUDA execution works. On Thor, the Flex Node worker and its workload CDI configuration must also expose the Tegra CUDA platform libraries, `/dev/nvmap`, and `/dev/nvsciipc`, with appropriate device permissions. The GPU image includes CUDA 13.0 development headers because CuPy compiles kernels at runtime. Validate actual video processing with `GPU_VIDEO_PROCESSING=required`, not just GPU enumeration.
+
+The host kernel must support WireGuard and GENEVE for the Flex Node network used by this deployment. A Ready node and a locally healthy backend do not prove that an Azure-hosted frontend can reach Thor. Verify cross-node HTTP connectivity before deploying through Fleet.
+
 The initial pose provider uses MediaPipe CPU inference. The Jetson image also runs real CUDA temporal motion and edge analysis in parallel through CuPy. That GPU output contributes its motion peak to impact timing and is reported separately from pose inference. The pose provider remains isolated in `backend/app/pose_estimator.py` so a TensorRT implementation can replace it without changing the API or frontend. Do not claim GPU accelerated pose inference until that provider is installed and the execution metadata reports it.
 
 ## AKS Fleet Manager deployment
