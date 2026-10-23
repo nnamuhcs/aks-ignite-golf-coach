@@ -6,6 +6,8 @@ WORKDIR /build
 COPY requirements.txt .
 RUN python -m venv /opt/venv \
     && pip install --no-cache-dir -r requirements.txt
+COPY download_pose_model.py ./
+RUN python download_pose_model.py
 
 FROM python:3.11-slim AS runtime
 

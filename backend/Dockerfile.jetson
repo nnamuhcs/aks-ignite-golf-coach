@@ -12,6 +12,8 @@ WORKDIR /build
 COPY requirements.txt requirements-gpu.txt ./
 RUN python3 -m venv /opt/venv \
     && pip install --no-cache-dir -r requirements-gpu.txt
+COPY download_pose_model.py ./
+RUN python3 download_pose_model.py
 
 FROM nvidia/cuda:13.0.1-runtime-ubuntu24.04 AS runtime
 

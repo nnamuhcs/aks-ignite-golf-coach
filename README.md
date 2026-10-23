@@ -78,6 +78,8 @@ Cross-node traffic through the Flex Node network requires WireGuard and GENEVE s
 
 The initial pose provider uses MediaPipe CPU inference. The Jetson image also runs real CUDA temporal motion and edge analysis in parallel through CuPy. That GPU output contributes its motion peak to impact timing and is reported separately from pose inference. The pose provider remains isolated in `backend/app/pose_estimator.py` so a TensorRT implementation can replace it without changing the API or frontend. Do not claim GPU accelerated pose inference until that provider is installed and the execution metadata reports it.
 
+Both backend images bundle the official MediaPipe heavy pose model during the image build. Golf analysis does not download that model at runtime, so it can run without access to Google's model-hosting DNS or network endpoint.
+
 ## AKS Fleet Manager deployment
 
 The GitHub Actions workflow publishes these images to GHCR after every push to `main`:
